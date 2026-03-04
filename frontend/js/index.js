@@ -409,6 +409,15 @@ async function loadSettingsPage() {
             console.log('settings.html文件内容长度:', html.length);
             content.innerHTML = html;
             console.log('settings.html文件内容已加载到页面');
+            
+            setTimeout(() => {
+                console.log('开始初始化settings功能...');
+                if (typeof initSettingsPage === 'function') {
+                    initSettingsPage();
+                } else {
+                    console.error('initSettingsPage函数未定义');
+                }
+            }, 100);
         } else {
             console.error('加载settings.html文件失败，状态:', response.status);
             content.innerHTML = `

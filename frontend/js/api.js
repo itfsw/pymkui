@@ -313,6 +313,18 @@ const Api = {
         return this.request('/index/api/getWorkThreadsLoad');
     },
 
+    async getServerConfig() {
+        return this.request('/index/api/getServerConfig');
+    },
+
+    async setServerConfig(config) {
+        const params = new URLSearchParams();
+        Object.keys(config).forEach(key => {
+            params.append(key, config[key]);
+        });
+        return this.request(`/index/api/setServerConfig?${params.toString()}`);
+    },
+
     async logout() {
         const result = await this.request('/index/api/logout');
         return result;
