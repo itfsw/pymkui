@@ -5,7 +5,7 @@ async function loadStreams() {
     
     tbody.innerHTML = `
         <tr>
-            <td colspan="8" class="p-10 text-center">
+            <td colspan="9" class="p-10 text-center">
                 <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto mb-4"></div>
                 <span class="text-white/60 font-semibold">加载中...</span>
             </td>
@@ -25,7 +25,7 @@ async function loadStreams() {
             if (data.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="8" class="p-10 text-center text-white/60 font-semibold">
+                        <td colspan="9" class="p-10 text-center text-white/60 font-semibold">
                             暂无媒体流
                         </td>
                     </tr>
@@ -274,6 +274,12 @@ async function showStreamInfo(schema, vhost, app, stream) {
                     </button>
                 </div>
                 <div class="space-y-4 max-h-[70vh] overflow-y-auto">
+                    <div class="bg-white/5 rounded-lg p-4">
+                        <h4 class="text-lg font-semibold text-white mb-3 border-b border-white/10 pb-2">流截图</h4>
+                        <div class="flex items-center justify-center h-48 bg-white/5 rounded-lg" id="stream-snap-container">
+                            <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+                        </div>
+                    </div>
                     ${renderStreamInfo(data)}
                 </div>
             </div>
@@ -285,6 +291,13 @@ async function showStreamInfo(schema, vhost, app, stream) {
                 modal.remove();
             }
         });
+        
+        // 获取截图并显示
+        const playUrl = generatePlayUrl(app, stream, schema);
+        const snapContainer = document.getElementById('stream-snap-container');
+        if (snapContainer) {
+            await getStreamSnap(playUrl, snapContainer);
+        }
         
     } catch (error) {
         console.error('获取流信息失败:', error);
@@ -786,6 +799,93 @@ async function showStreamPlayers(schema, vhost, app, stream) {
         console.error('获取播放器列表失败:', error);
         showToast('获取播放器列表失败: ' + error.message, 'error');
     }
+}
+
+async function getStreamSnap(url, container) {
+    try {
+        console.log('获取截图:', url);
+        
+        // 显示加载状态
+        container.innerHTML = `
+            <div class="flex items-center justify-center h-full bg-white/5 rounded-lg">
+                <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+            </div>
+        `;
+        
+        // 调用getSnap接口获取截图
+        const result = await Api.getSnap(url, 5, 3);
+        
+        if (result.code === 0 && result.data) {
+            // 显示截图
+            container.innerHTML = `
+                <div class="relative flex items-center justify-center h-full">
+                    <img src="${result.data}" alt="流截图" class="max-w-full max-h-full object-contain rounded-lg border border-white/20 cursor-pointer hover:opacity-90 transition-opacity" onclick="showSnapModal('${result.data}')">
+                    <div class="absolute bottom-2 right-2 flex space-x-1">
+                        <button class="bg-blue-500 text-white px-2 py-1 rounded text-xs font-semibold hover:bg-blue-600 transition-colors" onclick="downloadSnap('${result.data}')">
+                            <i class="fa fa-download mr-1"></i>下载
+                        </button>
+                    </div>
+                </div>
+            `;
+        } else {
+            // 显示错误状态
+            container.innerHTML = `
+                <div class="flex items-center justify-center h-full bg-white/5 rounded-lg">
+                    <span class="text-white/60 text-sm">获取失败</span>
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('获取截图失败:', error);
+        // 显示错误状态
+        container.innerHTML = `
+            <div class="flex items-center justify-center h-full bg-white/5 rounded-lg">
+                <span class="text-white/60 text-sm">获取失败</span>
+            </div>
+        `;
+    }
+}
+
+function downloadSnap(imageUrl) {
+    // 创建一个临时链接并点击下载
+    const link = document.createElement('a');
+    link.href = imageUrl;
+    link.download = `stream-snap-${Date.now()}.jpg`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+function showSnapModal(imageUrl) {
+    // 创建弹窗显示放大的截图
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-black/90 flex items-center justify-center z-50';
+    modal.innerHTML = `
+        <div class="bg-gray-900 rounded-xl p-6 max-w-4xl w-full mx-4 border border-white/20" onclick="event.stopPropagation()">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-white">流截图</h3>
+                <button class="text-white/60 hover:text-white" onclick="this.closest('.fixed').remove()">
+                    <i class="fa fa-times text-2xl"></i>
+                </button>
+            </div>
+            <div class="flex justify-center">
+                <img src="${imageUrl}" alt="流截图" class="max-w-full max-h-[70vh] object-contain rounded-lg">
+            </div>
+            <div class="mt-4 flex justify-end">
+                <button class="bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:shadow-neon transition-colors" onclick="downloadSnap('${imageUrl}')">
+                    <i class="fa fa-download mr-2"></i>下载截图
+                </button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    
+    // 点击弹窗外部关闭
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            modal.remove();
+        }
+    });
 }
 
 async function stopStream(schema, vhost, app, stream) {

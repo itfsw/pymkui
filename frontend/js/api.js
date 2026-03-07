@@ -350,6 +350,33 @@ const Api = {
         return this.request('/index/api/getAllSession');
     },
 
+    async getSnap(url, timeoutSec = 5, expireSec = 3) {
+        // 构建GET请求的查询参数
+        const params = new URLSearchParams({
+            url: url,
+            timeout_sec: timeoutSec,
+            expire_sec: expireSec
+        });
+        
+        try {
+            const response = await fetch(this.getUrl(`/index/api/getSnap?${params.toString()}`), {
+                method: 'GET',
+                credentials: 'include'
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            // 处理二进制图片响应
+            const blob = await response.blob();
+            // 创建一个URL对象用于显示图片
+            return { code: 0, data: URL.createObjectURL(blob) };
+        } catch (error) {
+            return { code: -1, msg: error.message || '网络请求失败' };
+        }
+    },
+
     clearAuth() {
         this.cookie = '';
         localStorage.removeItem('serverUrl');
