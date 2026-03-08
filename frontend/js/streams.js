@@ -1,11 +1,16 @@
 async function loadStreams() {
     const tbody = document.getElementById('streamsTableBody');
     const protocolFilter = document.getElementById('protocolFilter');
+    const appFilter = document.getElementById('appFilter');
+    const streamFilter = document.getElementById('streamFilter');
+    
     const schema = protocolFilter ? protocolFilter.value : 'all';
+    const app = appFilter ? appFilter.value.trim() : '';
+    const stream = streamFilter ? streamFilter.value.trim() : '';
     
     tbody.innerHTML = `
         <tr>
-            <td colspan="9" class="p-10 text-center">
+            <td colspan="8" class="p-10 text-center">
                 <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto mb-4"></div>
                 <span class="text-white/60 font-semibold">加载中...</span>
             </td>
@@ -13,7 +18,11 @@ async function loadStreams() {
     `;
     
     try {
-        const result = await Api.getMediaList(schema === 'all' ? undefined : schema);
+        const result = await Api.getMediaList(
+            schema === 'all' ? undefined : schema,
+            app || undefined,
+            stream || undefined
+        );
         
         console.log('getMediaList返回结果:', result);
         
@@ -25,7 +34,7 @@ async function loadStreams() {
             if (data.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="9" class="p-10 text-center text-white/60 font-semibold">
+                        <td colspan="8" class="p-10 text-center text-white/60 font-semibold">
                             暂无媒体流
                         </td>
                     </tr>

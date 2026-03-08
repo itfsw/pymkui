@@ -8,7 +8,15 @@
         </div>
         <div class="flex items-center space-x-4">
             <div class="flex items-center space-x-2">
-                <label class="text-white font-semibold">协议筛选:</label>
+                <label class="text-white font-semibold">应用:</label>
+                <input type="text" id="appFilter" placeholder="输入应用名" class="bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-primary w-32">
+            </div>
+            <div class="flex items-center space-x-2">
+                <label class="text-white font-semibold">流ID:</label>
+                <input type="text" id="streamFilter" placeholder="输入流ID" class="bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-primary w-32">
+            </div>
+            <div class="flex items-center space-x-2">
+                <label class="text-white font-semibold">协议:</label>
                 <select id="protocolFilter" class="bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary">
                     <option value="all" selected>全部</option>
                     <option value="rtsp">RTSP</option>

@@ -292,8 +292,11 @@ const Api = {
         return this.request('/index/api/getApiList');
     },
 
-    async getMediaList(schema) {
-        const body = schema ? { schema } : {};
+    async getMediaList(schema, app, stream) {
+        const body = {};
+        if (schema) body.schema = schema;
+        if (app) body.app = app;
+        if (stream) body.stream = stream;
         return this.request('/index/api/getMediaList', { body });
     },
 
