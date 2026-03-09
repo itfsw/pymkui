@@ -1,3 +1,4 @@
+import os
 import mk_logger
 import mk_loader
 import asyncio
@@ -51,6 +52,14 @@ def on_start():
     mk_logger.log_info(f"on_start, secret: {mk_loader.get_config('api.secret')}")
     # 强制cookie登录
     mk_loader.set_config('api.legacyAuth', "0")
+    mk_logger.log_info(f"set api.legacyAuth to 0")
+    
+    # 设置http.rootPath为当前py文件的../frontend目录
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    frontend_path = os.path.abspath(os.path.join(current_dir, '..', 'frontend'))
+    mk_loader.set_config('http.rootPath', frontend_path)
+    mk_logger.log_info(f"set http.rootPath to {frontend_path}")
+
     mk_loader.update_config()
     mk_loader.set_fastapi(check_route, submit_coro)
 
