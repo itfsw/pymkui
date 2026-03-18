@@ -283,68 +283,196 @@ function showPullProxyModal(title, data, serverConfig = {}, readOnly = false, in
                         </div>` : ''}
                     </div>
 
-                    <!-- 开关类参数（使用 select） -->
-                    <div class="grid grid-cols-2 gap-4 mb-4">
-                        ${buildProtocolToggle('开启HLS(enable_hls)', 'enableHls', getValue('enable_hls'), disabledAttr, inputCls)}
-                        ${buildProtocolToggle('开启HLS-FMP4(enable_hls_fmp4)', 'enableHlsFmp4', getValue('enable_hls_fmp4'), disabledAttr, inputCls)}
-                        ${buildProtocolToggle('开启MP4录制(enable_mp4)', 'enableMp4', getValue('enable_mp4'), disabledAttr, inputCls)}
-                        ${buildProtocolToggle('开启RTSP(enable_rtsp)', 'enableRtsp', getValue('enable_rtsp'), disabledAttr, inputCls)}
-                        ${buildProtocolToggle('开启RTMP/FLV(enable_rtmp)', 'enableRtmp', getValue('enable_rtmp'), disabledAttr, inputCls)}
-                        ${buildProtocolToggle('开启HTTP-TS(enable_ts)', 'enableTs', getValue('enable_ts'), disabledAttr, inputCls)}
-                        ${buildProtocolToggle('开启FMP4(enable_fmp4)', 'enableFmp4', getValue('enable_fmp4'), disabledAttr, inputCls)}
-                        ${buildProtocolToggle('开启音频(enable_audio)', 'enableAudio', getValue('enable_audio'), disabledAttr, inputCls)}
-                        ${buildProtocolToggle('添加静音音频(add_mute_audio)', 'addMuteAudio', getValue('add_mute_audio'), disabledAttr, inputCls)}
-                        ${buildProtocolToggle('自动关闭(auto_close)', 'autoClose', getValue('auto_close'), disabledAttr, inputCls)}
+                    <!-- 通用配置 -->
+                    <div class="mb-4">
+                        <h5 class="text-white/60 text-xs font-bold uppercase tracking-widest mb-3 border-b border-white/10 pb-1">通用配置</h5>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-white/80 text-sm font-semibold mb-1">时间戳覆盖(modify_stamp)</label>
+                                <select id="modifyStamp" ${disabledAttr} class="${inputCls}" style="color:white;">
+                                    <option value="" ${!getValue('modify_stamp') ? 'selected' : ''}>默认</option>
+                                    <option value="0" ${getValue('modify_stamp') === '0' ? 'selected' : ''}>0 - 绝对时间戳</option>
+                                    <option value="1" ${getValue('modify_stamp') === '1' ? 'selected' : ''}>1 - 系统时间戳</option>
+                                    <option value="2" ${getValue('modify_stamp') === '2' ? 'selected' : ''}>2 - 相对时间戳</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-white/80 text-sm font-semibold mb-1">开启音频(enable_audio)</label>
+                                <select id="enableAudio" ${disabledAttr} class="${inputCls}" style="color:white;">
+                                    <option value="" ${!getValue('enable_audio') ? 'selected' : ''}>默认</option>
+                                    <option value="1" ${getValue('enable_audio') === '1' ? 'selected' : ''}>1 - 开启</option>
+                                    <option value="0" ${getValue('enable_audio') === '0' ? 'selected' : ''}>0 - 关闭</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-white/80 text-sm font-semibold mb-1">添加静音音频(add_mute_audio)</label>
+                                <select id="addMuteAudio" ${disabledAttr} class="${inputCls}" style="color:white;">
+                                    <option value="" ${!getValue('add_mute_audio') ? 'selected' : ''}>默认</option>
+                                    <option value="1" ${getValue('add_mute_audio') === '1' ? 'selected' : ''}>1 - 开启</option>
+                                    <option value="0" ${getValue('add_mute_audio') === '0' ? 'selected' : ''}>0 - 关闭</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-white/80 text-sm font-semibold mb-1">自动关闭(auto_close)</label>
+                                <select id="autoClose" ${disabledAttr} class="${inputCls}" style="color:white;">
+                                    <option value="" ${!getValue('auto_close') ? 'selected' : ''}>默认</option>
+                                    <option value="1" ${getValue('auto_close') === '1' ? 'selected' : ''}>1 - 开启</option>
+                                    <option value="0" ${getValue('auto_close') === '0' ? 'selected' : ''}>0 - 关闭</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-white/80 text-sm font-semibold mb-1">平滑发送间隔(paced_sender_ms，毫秒)</label>
+                                <input type="number" id="pacedSenderMs" ${disabledAttr}
+                                    value="${getValue('paced_sender_ms')}"
+                                    placeholder="0（关闭）"
+                                    class="${inputCls}">
+                            </div>
+                        </div>
                     </div>
 
-                    <!-- 按需生成 -->
-                    <div class="grid grid-cols-2 gap-4 mb-4">
-                        ${buildProtocolToggle('HLS按需生成(hls_demand)', 'hlsDemand', getValue('hls_demand'), disabledAttr, inputCls)}
-                        ${buildProtocolToggle('RTSP按需生成(rtsp_demand)', 'rtspDemand', getValue('rtsp_demand'), disabledAttr, inputCls)}
-                        ${buildProtocolToggle('RTMP按需生成(rtmp_demand)', 'rtmpDemand', getValue('rtmp_demand'), disabledAttr, inputCls)}
-                        ${buildProtocolToggle('TS按需生成(ts_demand)', 'tsDemand', getValue('ts_demand'), disabledAttr, inputCls)}
-                        ${buildProtocolToggle('FMP4按需生成(fmp4_demand)', 'fmp4Demand', getValue('fmp4_demand'), disabledAttr, inputCls)}
-                        ${buildProtocolToggle('MP4计入观看数(mp4_as_player)', 'mp4AsPlayer', getValue('mp4_as_player'), disabledAttr, inputCls)}
+                    <!-- 转协议开关 -->
+                    <div class="mb-4">
+                        <h5 class="text-white/60 text-xs font-bold uppercase tracking-widest mb-3 border-b border-white/10 pb-1">转协议开关</h5>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-white/80 text-sm font-semibold mb-1">开启HLS(enable_hls)</label>
+                                <select id="enableHls" ${disabledAttr} class="${inputCls}" style="color:white;">
+                                    <option value="" ${!getValue('enable_hls') ? 'selected' : ''}>默认</option>
+                                    <option value="1" ${getValue('enable_hls') === '1' ? 'selected' : ''}>1 - 开启</option>
+                                    <option value="0" ${getValue('enable_hls') === '0' ? 'selected' : ''}>0 - 关闭</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-white/80 text-sm font-semibold mb-1">开启HLS-FMP4(enable_hls_fmp4)</label>
+                                <select id="enableHlsFmp4" ${disabledAttr} class="${inputCls}" style="color:white;">
+                                    <option value="" ${!getValue('enable_hls_fmp4') ? 'selected' : ''}>默认</option>
+                                    <option value="1" ${getValue('enable_hls_fmp4') === '1' ? 'selected' : ''}>1 - 开启</option>
+                                    <option value="0" ${getValue('enable_hls_fmp4') === '0' ? 'selected' : ''}>0 - 关闭</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-white/80 text-sm font-semibold mb-1">开启MP4录制(enable_mp4)</label>
+                                <select id="enableMp4" ${disabledAttr} class="${inputCls}" style="color:white;">
+                                    <option value="" ${!getValue('enable_mp4') ? 'selected' : ''}>默认</option>
+                                    <option value="1" ${getValue('enable_mp4') === '1' ? 'selected' : ''}>1 - 开启</option>
+                                    <option value="0" ${getValue('enable_mp4') === '0' ? 'selected' : ''}>0 - 关闭</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-white/80 text-sm font-semibold mb-1">开启RTSP(enable_rtsp)</label>
+                                <select id="enableRtsp" ${disabledAttr} class="${inputCls}" style="color:white;">
+                                    <option value="" ${!getValue('enable_rtsp') ? 'selected' : ''}>默认</option>
+                                    <option value="1" ${getValue('enable_rtsp') === '1' ? 'selected' : ''}>1 - 开启</option>
+                                    <option value="0" ${getValue('enable_rtsp') === '0' ? 'selected' : ''}>0 - 关闭</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-white/80 text-sm font-semibold mb-1">开启RTMP/FLV(enable_rtmp)</label>
+                                <select id="enableRtmp" ${disabledAttr} class="${inputCls}" style="color:white;">
+                                    <option value="" ${!getValue('enable_rtmp') ? 'selected' : ''}>默认</option>
+                                    <option value="1" ${getValue('enable_rtmp') === '1' ? 'selected' : ''}>1 - 开启</option>
+                                    <option value="0" ${getValue('enable_rtmp') === '0' ? 'selected' : ''}>0 - 关闭</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-white/80 text-sm font-semibold mb-1">开启HTTP-TS(enable_ts)</label>
+                                <select id="enableTs" ${disabledAttr} class="${inputCls}" style="color:white;">
+                                    <option value="" ${!getValue('enable_ts') ? 'selected' : ''}>默认</option>
+                                    <option value="1" ${getValue('enable_ts') === '1' ? 'selected' : ''}>1 - 开启</option>
+                                    <option value="0" ${getValue('enable_ts') === '0' ? 'selected' : ''}>0 - 关闭</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-white/80 text-sm font-semibold mb-1">开启FMP4(enable_fmp4)</label>
+                                <select id="enableFmp4" ${disabledAttr} class="${inputCls}" style="color:white;">
+                                    <option value="" ${!getValue('enable_fmp4') ? 'selected' : ''}>默认</option>
+                                    <option value="1" ${getValue('enable_fmp4') === '1' ? 'selected' : ''}>1 - 开启</option>
+                                    <option value="0" ${getValue('enable_fmp4') === '0' ? 'selected' : ''}>0 - 关闭</option>
+                                </select>
+                            </div>
+                        </div>
                     </div>
 
-                    <!-- 其他参数 -->
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-white/80 text-sm font-semibold mb-1">时间戳覆盖(modify_stamp)</label>
-                            <select id="modifyStamp" ${disabledAttr} class="${inputCls}" style="color:white;">
-                                <option value="" ${!getValue('modify_stamp') ? 'selected' : ''}>默认</option>
-                                <option value="0" ${getValue('modify_stamp') === '0' ? 'selected' : ''}>0 - 绝对时间戳</option>
-                                <option value="1" ${getValue('modify_stamp') === '1' ? 'selected' : ''}>1 - 系统时间戳</option>
-                                <option value="2" ${getValue('modify_stamp') === '2' ? 'selected' : ''}>2 - 相对时间戳</option>
-                            </select>
+                    <!-- 按需转协议 -->
+                    <div class="mb-4">
+                        <h5 class="text-white/60 text-xs font-bold uppercase tracking-widest mb-3 border-b border-white/10 pb-1">按需转协议</h5>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-white/80 text-sm font-semibold mb-1">HLS按需生成(hls_demand)</label>
+                                <select id="hlsDemand" ${disabledAttr} class="${inputCls}" style="color:white;">
+                                    <option value="" ${!getValue('hls_demand') ? 'selected' : ''}>默认</option>
+                                    <option value="1" ${getValue('hls_demand') === '1' ? 'selected' : ''}>1 - 开启</option>
+                                    <option value="0" ${getValue('hls_demand') === '0' ? 'selected' : ''}>0 - 关闭</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-white/80 text-sm font-semibold mb-1">RTSP按需生成(rtsp_demand)</label>
+                                <select id="rtspDemand" ${disabledAttr} class="${inputCls}" style="color:white;">
+                                    <option value="" ${!getValue('rtsp_demand') ? 'selected' : ''}>默认</option>
+                                    <option value="1" ${getValue('rtsp_demand') === '1' ? 'selected' : ''}>1 - 开启</option>
+                                    <option value="0" ${getValue('rtsp_demand') === '0' ? 'selected' : ''}>0 - 关闭</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-white/80 text-sm font-semibold mb-1">RTMP按需生成(rtmp_demand)</label>
+                                <select id="rtmpDemand" ${disabledAttr} class="${inputCls}" style="color:white;">
+                                    <option value="" ${!getValue('rtmp_demand') ? 'selected' : ''}>默认</option>
+                                    <option value="1" ${getValue('rtmp_demand') === '1' ? 'selected' : ''}>1 - 开启</option>
+                                    <option value="0" ${getValue('rtmp_demand') === '0' ? 'selected' : ''}>0 - 关闭</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-white/80 text-sm font-semibold mb-1">TS按需生成(ts_demand)</label>
+                                <select id="tsDemand" ${disabledAttr} class="${inputCls}" style="color:white;">
+                                    <option value="" ${!getValue('ts_demand') ? 'selected' : ''}>默认</option>
+                                    <option value="1" ${getValue('ts_demand') === '1' ? 'selected' : ''}>1 - 开启</option>
+                                    <option value="0" ${getValue('ts_demand') === '0' ? 'selected' : ''}>0 - 关闭</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-white/80 text-sm font-semibold mb-1">FMP4按需生成(fmp4_demand)</label>
+                                <select id="fmp4Demand" ${disabledAttr} class="${inputCls}" style="color:white;">
+                                    <option value="" ${!getValue('fmp4_demand') ? 'selected' : ''}>默认</option>
+                                    <option value="1" ${getValue('fmp4_demand') === '1' ? 'selected' : ''}>1 - 开启</option>
+                                    <option value="0" ${getValue('fmp4_demand') === '0' ? 'selected' : ''}>0 - 关闭</option>
+                                </select>
+                            </div>
                         </div>
-                        <div>
-                            <label class="block text-white/80 text-sm font-semibold mb-1">MP4切片大小(mp4_max_second，秒)</label>
-                            <input type="number" id="mp4MaxSecond" ${disabledAttr}
-                                value="${getValue('mp4_max_second')}"
-                                placeholder="默认"
-                                class="${inputCls}">
-                        </div>
-                        <div>
-                            <label class="block text-white/80 text-sm font-semibold mb-1">MP4保存路径(mp4_save_path)</label>
-                            <input type="text" id="mp4SavePath" ${disabledAttr}
-                                value="${getValue('mp4_save_path')}"
-                                placeholder="默认路径"
-                                class="${inputCls}">
-                        </div>
-                        <div>
-                            <label class="block text-white/80 text-sm font-semibold mb-1">HLS保存路径(hls_save_path)</label>
-                            <input type="text" id="hlsSavePath" ${disabledAttr}
-                                value="${getValue('hls_save_path')}"
-                                placeholder="默认路径"
-                                class="${inputCls}">
-                        </div>
-                        <div>
-                            <label class="block text-white/80 text-sm font-semibold mb-1">断流保留时间(continue_push_ms，毫秒)</label>
-                            <input type="number" id="continuePushMs" ${disabledAttr}
-                                value="${getValue('continue_push_ms')}"
-                                placeholder="默认"
-                                class="${inputCls}">
+                    </div>
+
+                    <!-- 录制配置 -->
+                    <div>
+                        <h5 class="text-white/60 text-xs font-bold uppercase tracking-widest mb-3 border-b border-white/10 pb-1">录制配置</h5>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-white/80 text-sm font-semibold mb-1">MP4计入观看数(mp4_as_player)</label>
+                                <select id="mp4AsPlayer" ${disabledAttr} class="${inputCls}" style="color:white;">
+                                    <option value="" ${!getValue('mp4_as_player') ? 'selected' : ''}>默认</option>
+                                    <option value="1" ${getValue('mp4_as_player') === '1' ? 'selected' : ''}>1 - 开启</option>
+                                    <option value="0" ${getValue('mp4_as_player') === '0' ? 'selected' : ''}>0 - 关闭</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-white/80 text-sm font-semibold mb-1">MP4切片大小(mp4_max_second，秒)</label>
+                                <input type="number" id="mp4MaxSecond" ${disabledAttr}
+                                    value="${getValue('mp4_max_second')}"
+                                    placeholder="3600"
+                                    class="${inputCls}">
+                            </div>
+                            <div>
+                                <label class="block text-white/80 text-sm font-semibold mb-1">MP4保存路径(mp4_save_path)</label>
+                                <input type="text" id="mp4SavePath" ${disabledAttr}
+                                    value="${getValue('mp4_save_path')}"
+                                    placeholder="./www"
+                                    class="${inputCls}">
+                            </div>
+                            <div>
+                                <label class="block text-white/80 text-sm font-semibold mb-1">HLS保存路径(hls_save_path)</label>
+                                <input type="text" id="hlsSavePath" ${disabledAttr}
+                                    value="${getValue('hls_save_path')}"
+                                    placeholder="./www"
+                                    class="${inputCls}">
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -427,23 +555,6 @@ function showPullProxyModal(title, data, serverConfig = {}, readOnly = false, in
     }
 }
 
-// 生成开关型 select HTML
-function buildProtocolToggle(label, id, currentValue, disabledAttr, inputCls) {
-    const sel0 = currentValue === '0' ? 'selected' : '';
-    const sel1 = currentValue === '1' ? 'selected' : '';
-    const selDef = (!currentValue) ? 'selected' : '';
-    return `
-        <div>
-            <label class="block text-white/80 text-sm font-semibold mb-1">${label}</label>
-            <select id="${id}" ${disabledAttr} class="${inputCls}" style="color:white;">
-                <option value="" ${selDef}>默认</option>
-                <option value="1" ${sel1}>开启</option>
-                <option value="0" ${sel0}>关闭</option>
-            </select>
-        </div>
-    `;
-}
-
 // ==================== 表单提交 ====================
 
 async function submitAddPullProxy(closeModal) {
@@ -476,10 +587,10 @@ async function submitAddPullProxy(closeModal) {
         fmp4_demand:       'fmp4Demand',
         mp4_as_player:     'mp4AsPlayer',
         modify_stamp:      'modifyStamp',
+        paced_sender_ms:   'pacedSenderMs',
         mp4_max_second:    'mp4MaxSecond',
         mp4_save_path:     'mp4SavePath',
         hls_save_path:     'hlsSavePath',
-        continue_push_ms:  'continuePushMs',
     };
     const protocolParams = {};
     Object.entries(protocolMap).forEach(([apiKey, domId]) => {
@@ -571,6 +682,7 @@ async function loadDefaultProtocolParams() {
     // dom id  <-->  protocol.xxx 字段名映射
     const fieldMap = {
         modifyStamp:   'modify_stamp',
+        pacedSenderMs: 'paced_sender_ms',
         enableAudio:   'enable_audio',
         addMuteAudio:  'add_mute_audio',
         autoClose:     'auto_close',
@@ -590,7 +702,6 @@ async function loadDefaultProtocolParams() {
         mp4MaxSecond:  'mp4_max_second',
         mp4SavePath:   'mp4_save_path',
         hlsSavePath:   'hls_save_path',
-        continuePushMs:'continue_push_ms',
     };
 
     try {
@@ -617,11 +728,11 @@ async function loadDefaultProtocolParams() {
 
 function clearProtocolParams() {
     const ids = [
-        'modifyStamp', 'enableAudio', 'addMuteAudio', 'autoClose',
+        'modifyStamp', 'pacedSenderMs', 'enableAudio', 'addMuteAudio', 'autoClose',
         'enableHls', 'enableHlsFmp4', 'enableMp4', 'enableRtsp', 'enableRtmp',
         'enableTs', 'enableFmp4', 'hlsDemand', 'rtspDemand', 'rtmpDemand',
         'tsDemand', 'fmp4Demand', 'mp4AsPlayer', 'mp4MaxSecond', 'mp4SavePath',
-        'hlsSavePath', 'continuePushMs',
+        'hlsSavePath',
     ];
     ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     showToast('转协议参数已清空', 'info');
@@ -675,6 +786,7 @@ async function applyPreset() {
             const p = result.data;
             const fieldMap = {
                 modify_stamp:     'modifyStamp',
+                paced_sender_ms:  'pacedSenderMs',
                 enable_audio:     'enableAudio',
                 add_mute_audio:   'addMuteAudio',
                 auto_close:       'autoClose',
@@ -694,7 +806,6 @@ async function applyPreset() {
                 mp4_max_second:   'mp4MaxSecond',
                 mp4_save_path:    'mp4SavePath',
                 hls_save_path:    'hlsSavePath',
-                continue_push_ms: 'continuePushMs',
             };
             Object.entries(fieldMap).forEach(([apiKey, domId]) => {
                 const el = document.getElementById(domId);

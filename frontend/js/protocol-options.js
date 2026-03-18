@@ -128,6 +128,17 @@ function showProtocolOptionsModal(title, data, serverConfig = {}) {
         return defaultValue;
     };
     
+    const iCls = 'w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-primary';
+    const buildToggle = (label, id, val) => `
+        <div>
+            <label class="block text-white font-semibold mb-2">${label}</label>
+            <select id="${id}" class="${iCls}" style="color:white;">
+                <option value="" ${!val ? 'selected' : ''}>默认</option>
+                <option value="1" ${val === '1' ? 'selected' : ''}>1 - 开启</option>
+                <option value="0" ${val === '0' ? 'selected' : ''}>0 - 关闭</option>
+            </select>
+        </div>`;
+
     modal.innerHTML = `
         <div class="bg-gray-900 rounded-xl p-6 max-w-4xl w-full mx-4 border border-white/20 max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
             <div class="flex justify-between items-center mb-4">
@@ -138,141 +149,90 @@ function showProtocolOptionsModal(title, data, serverConfig = {}) {
             </div>
             <form id="protocolOptionsForm" class="space-y-6">
                 <input type="hidden" id="optionId" value="${data ? data.id : ''}">
-                
+
                 <!-- 通用配置 -->
                 <div class="bg-white/5 rounded-lg p-4">
                     <h4 class="text-lg font-semibold text-white mb-4 border-b border-white/10 pb-2">通用配置</h4>
                     <div class="space-y-4">
                         <div>
                             <label class="block text-white font-semibold mb-2">预设名称(name) *</label>
-                            <input type="text" id="optionName" required value="${data ? data.name : ''}" class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-primary">
+                            <input type="text" id="optionName" required value="${data ? data.name : ''}" class="${iCls}">
                         </div>
-                        
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-white font-semibold mb-2">时间戳覆盖(modify_stamp)</label>
-                                <input type="text" id="modifyStamp" value="${getValue('modify_stamp')}" placeholder="0/1/2" class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-primary">
+                                <select id="modifyStamp" class="${iCls}" style="color:white;">
+                                    <option value="" ${!getValue('modify_stamp') ? 'selected' : ''}>默认</option>
+                                    <option value="0" ${getValue('modify_stamp') === '0' ? 'selected' : ''}>0 - 绝对时间戳</option>
+                                    <option value="1" ${getValue('modify_stamp') === '1' ? 'selected' : ''}>1 - 系统时间戳</option>
+                                    <option value="2" ${getValue('modify_stamp') === '2' ? 'selected' : ''}>2 - 相对时间戳</option>
+                                </select>
                             </div>
-                            <div>
-                                <label class="block text-white font-semibold mb-2">开启音频(enable_audio)</label>
-                                <input type="text" id="enableAudio" value="${getValue('enable_audio')}" placeholder="0/1" class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-primary">
-                            </div>
+                            ${buildToggle('开启音频(enable_audio)', 'enableAudio', getValue('enable_audio'))}
                         </div>
-                        
+                        <div class="grid grid-cols-2 gap-4">
+                            ${buildToggle('添加静音音频(add_mute_audio)', 'addMuteAudio', getValue('add_mute_audio'))}
+                            ${buildToggle('自动关闭(auto_close)', 'autoClose', getValue('auto_close'))}
+                        </div>
                         <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-white font-semibold mb-2">添加静音音频(add_mute_audio)</label>
-                                <input type="text" id="addMuteAudio" value="${getValue('add_mute_audio')}" placeholder="0/1" class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-primary">
+                                <label class="block text-white font-semibold mb-2">断连续推延时(continue_push_ms，毫秒)</label>
+                                <input type="number" id="continuePushMs" value="${getValue('continue_push_ms')}" placeholder="15000" class="${iCls}">
                             </div>
                             <div>
-                                <label class="block text-white font-semibold mb-2">自动关闭(auto_close)</label>
-                                <input type="text" id="autoClose" value="${getValue('auto_close')}" placeholder="0/1" class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-primary">
-                            </div>
-                        </div>
-                        
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-white font-semibold mb-2">推流超时(continue_push_ms)</label>
-                                <input type="text" id="continuePushMs" value="${getValue('continue_push_ms')}" placeholder="15000" class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-primary">
-                            </div>
-                            <div>
-                                <label class="block text-white font-semibold mb-2">平滑发送间隔(paced_sender_ms)</label>
-                                <input type="text" id="pacedSenderMs" value="${getValue('paced_sender_ms')}" placeholder="0" class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-primary">
+                                <label class="block text-white font-semibold mb-2">平滑发送间隔(paced_sender_ms，毫秒)</label>
+                                <input type="number" id="pacedSenderMs" value="${getValue('paced_sender_ms')}" placeholder="0" class="${iCls}">
                             </div>
                         </div>
                     </div>
                 </div>
-                
+
                 <!-- 转协议开关 -->
                 <div class="bg-white/5 rounded-lg p-4">
                     <h4 class="text-lg font-semibold text-white mb-4 border-b border-white/10 pb-2">转协议开关</h4>
                     <div class="grid grid-cols-3 gap-4">
-                        <div>
-                            <label class="block text-white font-semibold mb-2">开启HLS(enable_hls)</label>
-                            <input type="text" id="enableHls" value="${getValue('enable_hls')}" placeholder="0/1" class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-primary">
-                        </div>
-                        <div>
-                            <label class="block text-white font-semibold mb-2">开启HLS-FMP4(enable_hls_fmp4)</label>
-                            <input type="text" id="enableHlsFmp4" value="${getValue('enable_hls_fmp4')}" placeholder="0/1" class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-primary">
-                        </div>
-                        <div>
-                            <label class="block text-white font-semibold mb-2">开启MP4录制(enable_mp4)</label>
-                            <input type="text" id="enableMp4" value="${getValue('enable_mp4')}" placeholder="0/1" class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-primary">
-                        </div>
-                        <div>
-                            <label class="block text-white font-semibold mb-2">开启RTSP(enable_rtsp)</label>
-                            <input type="text" id="enableRtsp" value="${getValue('enable_rtsp')}" placeholder="0/1" class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-primary">
-                        </div>
-                        <div>
-                            <label class="block text-white font-semibold mb-2">开启RTMP(enable_rtmp)</label>
-                            <input type="text" id="enableRtmp" value="${getValue('enable_rtmp')}" placeholder="0/1" class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-primary">
-                        </div>
-                        <div>
-                            <label class="block text-white font-semibold mb-2">开启TS(enable_ts)</label>
-                            <input type="text" id="enableTs" value="${getValue('enable_ts')}" placeholder="0/1" class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-primary">
-                        </div>
-                        <div>
-                            <label class="block text-white font-semibold mb-2">开启FMP4(enable_fmp4)</label>
-                            <input type="text" id="enableFmp4" value="${getValue('enable_fmp4')}" placeholder="0/1" class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-primary">
-                        </div>
+                        ${buildToggle('开启HLS(enable_hls)', 'enableHls', getValue('enable_hls'))}
+                        ${buildToggle('开启HLS-FMP4(enable_hls_fmp4)', 'enableHlsFmp4', getValue('enable_hls_fmp4'))}
+                        ${buildToggle('开启MP4录制(enable_mp4)', 'enableMp4', getValue('enable_mp4'))}
+                        ${buildToggle('开启RTSP(enable_rtsp)', 'enableRtsp', getValue('enable_rtsp'))}
+                        ${buildToggle('开启RTMP/FLV(enable_rtmp)', 'enableRtmp', getValue('enable_rtmp'))}
+                        ${buildToggle('开启HTTP-TS(enable_ts)', 'enableTs', getValue('enable_ts'))}
+                        ${buildToggle('开启FMP4(enable_fmp4)', 'enableFmp4', getValue('enable_fmp4'))}
                     </div>
                 </div>
-                
+
                 <!-- 按需转协议开关 -->
                 <div class="bg-white/5 rounded-lg p-4">
                     <h4 class="text-lg font-semibold text-white mb-4 border-b border-white/10 pb-2">按需转协议开关</h4>
                     <div class="grid grid-cols-3 gap-4">
-                        <div>
-                            <label class="block text-white font-semibold mb-2">HLS按需(hls_demand)</label>
-                            <input type="text" id="hlsDemand" value="${getValue('hls_demand')}" placeholder="0/1" class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-primary">
-                        </div>
-                        <div>
-                            <label class="block text-white font-semibold mb-2">RTSP按需(rtsp_demand)</label>
-                            <input type="text" id="rtspDemand" value="${getValue('rtsp_demand')}" placeholder="0/1" class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-primary">
-                        </div>
-                        <div>
-                            <label class="block text-white font-semibold mb-2">RTMP按需(rtmp_demand)</label>
-                            <input type="text" id="rtmpDemand" value="${getValue('rtmp_demand')}" placeholder="0/1" class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-primary">
-                        </div>
-                        <div>
-                            <label class="block text-white font-semibold mb-2">TS按需(ts_demand)</label>
-                            <input type="text" id="tsDemand" value="${getValue('ts_demand')}" placeholder="0/1" class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-primary">
-                        </div>
-                        <div>
-                            <label class="block text-white font-semibold mb-2">FMP4按需(fmp4_demand)</label>
-                            <input type="text" id="fmp4Demand" value="${getValue('fmp4_demand')}" placeholder="0/1" class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-primary">
-                        </div>
+                        ${buildToggle('HLS按需(hls_demand)', 'hlsDemand', getValue('hls_demand'))}
+                        ${buildToggle('RTSP按需(rtsp_demand)', 'rtspDemand', getValue('rtsp_demand'))}
+                        ${buildToggle('RTMP按需(rtmp_demand)', 'rtmpDemand', getValue('rtmp_demand'))}
+                        ${buildToggle('TS按需(ts_demand)', 'tsDemand', getValue('ts_demand'))}
+                        ${buildToggle('FMP4按需(fmp4_demand)', 'fmp4Demand', getValue('fmp4_demand'))}
                     </div>
                 </div>
-                
+
                 <!-- 录制配置 -->
                 <div class="bg-white/5 rounded-lg p-4">
                     <h4 class="text-lg font-semibold text-white mb-4 border-b border-white/10 pb-2">录制配置</h4>
-                    <div class="space-y-4">
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-white font-semibold mb-2">MP4保存路径(mp4_save_path)</label>
-                                <input type="text" id="mp4SavePath" value="${getValue('mp4_save_path')}" placeholder="/path/to/save" class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-primary">
-                            </div>
-                            <div>
-                                <label class="block text-white font-semibold mb-2">HLS保存路径(hls_save_path)</label>
-                                <input type="text" id="hlsSavePath" value="${getValue('hls_save_path')}" placeholder="/path/to/save" class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-primary">
-                            </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        ${buildToggle('MP4计入观看数(mp4_as_player)', 'mp4AsPlayer', getValue('mp4_as_player'))}
+                        <div>
+                            <label class="block text-white font-semibold mb-2">MP4切片大小(mp4_max_second，秒)</label>
+                            <input type="number" id="mp4MaxSecond" value="${getValue('mp4_max_second')}" placeholder="3600" class="${iCls}">
                         </div>
-                        
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-white font-semibold mb-2">MP4最大秒数(mp4_max_second)</label>
-                                <input type="text" id="mp4MaxSecond" value="${getValue('mp4_max_second')}" placeholder="3600" class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-primary">
-                            </div>
-                            <div>
-                                <label class="block text-white font-semibold mb-2">MP4作为观看者(mp4_as_player)</label>
-                                <input type="text" id="mp4AsPlayer" value="${getValue('mp4_as_player')}" placeholder="0/1" class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-primary">
-                            </div>
+                        <div>
+                            <label class="block text-white font-semibold mb-2">MP4保存路径(mp4_save_path)</label>
+                            <input type="text" id="mp4SavePath" value="${getValue('mp4_save_path')}" placeholder="./www" class="${iCls}">
+                        </div>
+                        <div>
+                            <label class="block text-white font-semibold mb-2">HLS保存路径(hls_save_path)</label>
+                            <input type="text" id="hlsSavePath" value="${getValue('hls_save_path')}" placeholder="./www" class="${iCls}">
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="flex justify-end space-x-4 mt-6">
                     <button type="button" class="bg-white/10 text-white px-6 py-2 rounded-lg font-semibold hover:bg-white/20 transition-colors" onclick="this.closest('.absolute').remove()">
                         取消
