@@ -94,31 +94,7 @@ def _restore_pull_proxies():
             mk_logger.log_warn(f"[restore_pull_proxies] 跳过无效记录 id={proxy.get('id')}")
             continue
 
-        # 解析 custom_params，提取控制参数，剩余部分透传给 opt
-        custom_params_dict = {}
-        raw_custom = proxy.get("custom_params") or "{}"
-        try:
-            custom_params_dict = json.loads(raw_custom) if isinstance(raw_custom, str) else raw_custom
-            if not isinstance(custom_params_dict, dict):
-                custom_params_dict = {}
-        except Exception as e:
-            mk_logger.log_warn(f"[restore_pull_proxies] 解析 custom_params 失败 id={proxy.get('id')}: {e}")
-
-        retry_count  = int(custom_params_dict.pop("retry_count",  -1))
-        timeout_sec  = float(custom_params_dict.pop("timeout_sec", 0.0))
-
-        # 解析 protocol_params，全部透传给 opt
-        opt = {}
-        raw_proto = proxy.get("protocol_params") or "{}"
-        try:
-            proto_dict = json.loads(raw_proto) if isinstance(raw_proto, str) else raw_proto
-            if isinstance(proto_dict, dict):
-                opt.update(proto_dict)
-        except Exception as e:
-            mk_logger.log_warn(f"[restore_pull_proxies] 解析 protocol_params 失败 id={proxy.get('id')}: {e}")
-        # custom_params 剩余字段也透传
-        opt.update(custom_params_dict)
-
+        vhost, app, stream, url, retry_count, timeout_sec, opt = _build_proxy_call_args(proxy)
         proxy_id = proxy.get("id")
 
         def make_callback(pid, vhost, app, stream, url):
@@ -148,81 +124,92 @@ def _restore_pull_proxies():
 
     mk_logger.log_info(f"[restore_pull_proxies] 共恢复 {count} 个拉流代理")
 
-def on_exit():
-    mk_logger.log_info("on_exit")
 
-def on_publish(type: str, args: dict, invoker, sender: dict) -> bool:
-    mk_logger.log_info(f"type: {type}, args: {args}, sender: {sender}")
-    # opt 控制转协议，请参考配置文件[protocol]下字段
-    opt = {
-        #"enable_rtmp": "1"
-    }
-    # 响应推流鉴权结果
-    mk_loader.publish_auth_invoker_do(invoker, "", opt)
-    # 返回True代表此事件被python拦截
-    return True
+def _build_proxy_call_args(proxy: dict) -> tuple:
+    """
+    从数据库代理记录中解析出 add_stream_proxy 所需的参数。
+    返回 (vhost, app, stream, url, retry_count, timeout_sec, opt)
+    """
+    vhost  = proxy.get("vhost")  or "__defaultVhost__"
+    app    = proxy.get("app",    "")
+    stream = proxy.get("stream", "")
+    url    = proxy.get("url",    "")
 
-def on_play(args: dict, invoker, sender: dict) -> bool:
-    mk_logger.log_info(f"args: {args}, sender: {sender}")
-    # 响应播放鉴权结果
-    mk_loader.play_auth_invoker_do(invoker, "")
-    # 返回True代表此事件被python拦截
-    return True
+    custom_params_dict = {}
+    raw_custom = proxy.get("custom_params") or "{}"
+    try:
+        custom_params_dict = json.loads(raw_custom) if isinstance(raw_custom, str) else raw_custom
+        if not isinstance(custom_params_dict, dict):
+            custom_params_dict = {}
+    except Exception as e:
+        mk_logger.log_warn(f"[build_proxy_call_args] 解析 custom_params 失败 id={proxy.get('id')}: {e}")
 
-def on_flow_report(args: dict, totalBytes: int, totalDuration: int, isPlayer: bool, sender: dict) -> bool:
-    mk_logger.log_info(f"args: {args}, totalBytes: {totalBytes}, totalDuration: {totalDuration}, isPlayer: {isPlayer}, sender: {sender}")
-    # 返回True代表此事件被python拦截
-    return True
+    retry_count = int(custom_params_dict.pop("retry_count",  -1))
+    timeout_sec = float(custom_params_dict.pop("timeout_sec", 0.0))
 
-def on_media_changed(is_register: bool, sender: mk_loader.MediaSource) -> bool:
-    mk_logger.log_info(f"is_register: {is_register}, sender: {sender.getUrl()}")
-    # 该事件在c++中也处理下
-    return False
+    opt = {}
+    raw_proto = proxy.get("protocol_params") or "{}"
+    try:
+        proto_dict = json.loads(raw_proto) if isinstance(raw_proto, str) else raw_proto
+        if isinstance(proto_dict, dict):
+            opt.update(proto_dict)
+    except Exception as e:
+        mk_logger.log_warn(f"[build_proxy_call_args] 解析 protocol_params 失败 id={proxy.get('id')}: {e}")
+    opt.update(custom_params_dict)
 
-def on_player_proxy_failed(url: str, media_tuple: mk_loader.MediaTuple , ex: mk_loader.SockException) -> bool:
-    mk_logger.log_info(f"on_player_proxy_failed: {url}, {media_tuple.shortUrl()}, {ex.what()}")
-    # 该事件在c++中也处理下
-    return False
+    return vhost, app, stream, url, retry_count, timeout_sec, opt
 
-def on_get_rtsp_realm(args: dict, invoker, sender: dict) -> bool:
-    mk_logger.log_info(f"on_get_rtsp_realm, args: {args}, sender: {sender}")
-    mk_loader.rtsp_get_realm_invoker_do(invoker, "zlmediakit")
-    # 返回True代表此事件被python拦截
-    return True
 
-def on_rtsp_auth(args: dict, realm: str, user_name: str, must_no_encrypt: bool, invoker, sender:dict) -> bool:
-    mk_logger.log_info(f"on_rtsp_auth, args: {args}, realm: {realm}, user_name: {user_name}, must_no_encrypt: {must_no_encrypt}, sender: {sender}")
-    mk_loader.rtsp_auth_invoker_do(invoker, False, "zlmediakit")
-    # 返回True代表此事件被python拦截
-    return True
-
-def on_stream_not_found(args: dict, sender:dict, invoker) -> bool:
+def on_stream_not_found(args: dict, sender: dict, invoker) -> bool:
     mk_logger.log_info(f"on_stream_not_found, args: {args}, sender: {sender}")
-    # 立即通知播放器流不存在并关闭
-    mk_loader.close_player_invoker_do(invoker)
-    # 返回True代表此事件被python拦截
-    return True
 
-def on_record_mp4(info: dict) -> bool:
-    mk_logger.log_info(f"on_record_mp4, info: {info}")
-    # 返回True代表此事件被python拦截
-    return True
-def on_record_ts(info: dict) -> bool:
-    mk_logger.log_info(f"on_record_ts, info: {info}")
-    # 返回True代表此事件被python拦截
-    return True
+    vhost  = args.get("vhost")  or "__defaultVhost__"
+    app    = args.get("app",    "")
+    stream = args.get("stream", "")
 
-def on_stream_none_reader(sender: mk_loader.MediaSource) -> bool:
-    mk_logger.log_info(f"on_stream_none_reader: {sender.getUrl()}")
-    # 无人观看自动关闭
-    # sender.close(False)
-    # 返回True代表此事件被python拦截
-    return True
+    # 查询数据库，看是否有匹配的按需拉流代理
+    try:
+        from database import Database
+        db = Database()
+        db.cursor.execute(
+            "SELECT * FROM pull_proxies WHERE vhost=? AND app=? AND stream=? AND on_demand=1",
+            (vhost, app, stream)
+        )
+        row = db.cursor.fetchone()
+        proxy = dict(row) if row else None
+        db.close()
+    except Exception as e:
+        mk_logger.log_warn(f"[on_stream_not_found] 查询数据库失败: {e}")
+        proxy = None
 
-def on_send_rtp_stopped(sender: mk_loader.MultiMediaSourceMuxer, ssrc: str, ex: mk_loader.SockException) -> bool:
-    mk_logger.log_info(f"on_send_rtp_stopped, ssrc: {ssrc}, ex: {ex.what()}, url: {sender.getMediaTuple().getUrl()}")
-    # 返回True代表此事件被python拦截
-    return True
+    if proxy:
+        # 找到按需拉流代理，启动拉流，让播放器等待流上线
+        pid = proxy.get("id")
+        vhost, app, stream, url, retry_count, timeout_sec, opt = _build_proxy_call_args(proxy)
+        mk_logger.log_info(
+            f"[on_stream_not_found] 触发按需拉流 id={pid} {vhost}/{app}/{stream} url={url}"
+        )
+
+        def cb(err, key):
+            if err:
+                mk_logger.log_warn(f"[on_stream_not_found] 按需拉流失败 id={pid} {vhost}/{app}/{stream}: {err}")
+            else:
+                mk_logger.log_info(f"[on_stream_not_found] 按需拉流成功 id={pid} {vhost}/{app}/{stream}")
+
+        opt['auto_close'] = True  # 按需拉流自动关闭，流无人观看且拉流成功后自动关闭
+        mk_loader.add_stream_proxy(
+            vhost, app, stream, url, cb,
+            retry_count=0,
+            force=False,          # 已存在则不重复拉
+            timeout_sec=timeout_sec,
+            opt=opt,
+        )
+        # 此事件被python拦截，ZLM等待拉流成功后自动推送流给播放器
+        return True
+
+    # 按需拉流代理不存在，不处理事件
+    return False
+
 
 def on_http_access(parser: mk_loader.Parser, path: str, file_path: str, is_dir: bool, invoker, sender: dict) -> bool:
     # 获取frontend目录的绝对路径
@@ -238,27 +225,98 @@ def on_http_access(parser: mk_loader.Parser, path: str, file_path: str, is_dir: 
     mk_loader.http_access_invoker_do(invoker, "", path, 60 * 60)
     return True
 
-def on_rtp_server_timeout(local_port: int, tuple: mk_loader.MediaTuple, tcp_mode: int, re_use_port: bool, ssrc: int) -> bool:
-    mk_logger.log_info(f"on_rtp_server_timeout, local_port: {local_port}, tuple: {tuple.shortUrl()}, tcp_mode: {tcp_mode}, re_use_port: {re_use_port}, ssrc: {ssrc}")
-    # 返回True代表此事件被python拦截
-    return True
 
-def on_reload_config():
-    mk_logger.log_info(f"on_reload_config")
+# def on_exit():
+#     mk_logger.log_info("on_exit")
 
-class PyMultiMediaSourceMuxer:
-    def __init__(self, sender: mk_loader.MultiMediaSourceMuxer):
-        mk_logger.log_info(f"PyMultiMediaSourceMuxer: {sender.getMediaTuple().shortUrl()}")
-    def destroy(self):
-        mk_logger.log_info(f"~PyMultiMediaSourceMuxer")
+# def on_publish(type: str, args: dict, invoker, sender: dict) -> bool:
+#     mk_logger.log_info(f"type: {type}, args: {args}, sender: {sender}")
+#     # opt 控制转协议，请参考配置文件[protocol]下字段
+#     opt = {
+#         #"enable_rtmp": "1"
+#     }
+#     # 响应推流鉴权结果
+#     mk_loader.publish_auth_invoker_do(invoker, "", opt)
+#     # 返回True代表此事件被python拦截
+#     return True
 
-    def addTrack(self, track: mk_loader.Track):
-        mk_logger.log_info(f"addTrack: {track.getCodecName()}")
-        return True
-    def addTrackCompleted(self):
-        mk_logger.log_info(f"addTrackCompleted")
-    def inputFrame(self, frame: mk_loader.Frame):
-        # mk_logger.log_info(f"inputFrame: {frame.getCodecName()} {frame.dts()}")
-        return True
-def on_create_muxer(sender: mk_loader.MultiMediaSourceMuxer):
-    return PyMultiMediaSourceMuxer(sender)
+# def on_play(args: dict, invoker, sender: dict) -> bool:
+#     mk_logger.log_info(f"args: {args}, sender: {sender}")
+#     # 响应播放鉴权结果
+#     mk_loader.play_auth_invoker_do(invoker, "")
+#     # 返回True代表此事件被python拦截
+#     return True
+
+# def on_flow_report(args: dict, totalBytes: int, totalDuration: int, isPlayer: bool, sender: dict) -> bool:
+#     mk_logger.log_info(f"args: {args}, totalBytes: {totalBytes}, totalDuration: {totalDuration}, isPlayer: {isPlayer}, sender: {sender}")
+#     # 返回True代表此事件被python拦截
+#     return False
+
+# def on_media_changed(is_register: bool, sender: mk_loader.MediaSource) -> bool:
+#     mk_logger.log_info(f"is_register: {is_register}, sender: {sender.getUrl()}")
+#     # 该事件在c++中也处理下
+#     return False
+
+# def on_player_proxy_failed(url: str, media_tuple: mk_loader.MediaTuple , ex: mk_loader.SockException) -> bool:
+#     mk_logger.log_info(f"on_player_proxy_failed: {url}, {media_tuple.shortUrl()}, {ex.what()}")
+#     # 该事件在c++中也处理下
+#     return False
+
+# def on_record_mp4(info: dict) -> bool:
+#     mk_logger.log_info(f"on_record_mp4, info: {info}")
+#     # 返回True代表此事件被python拦截
+#     return True
+# def on_record_ts(info: dict) -> bool:
+#     mk_logger.log_info(f"on_record_ts, info: {info}")
+#     # 返回True代表此事件被python拦截
+#     return True
+
+# def on_stream_none_reader(sender: mk_loader.MediaSource) -> bool:
+#     mk_logger.log_info(f"on_stream_none_reader: {sender.getUrl()}")
+#     # 无人观看自动关闭
+#     # sender.close(False)
+#     # 返回True代表此事件被python拦截
+#     return True
+
+# def on_send_rtp_stopped(sender: mk_loader.MultiMediaSourceMuxer, ssrc: str, ex: mk_loader.SockException) -> bool:
+#     mk_logger.log_info(f"on_send_rtp_stopped, ssrc: {ssrc}, ex: {ex.what()}, url: {sender.getMediaTuple().getUrl()}")
+#     # 返回True代表此事件被python拦截
+#     return True
+
+# def on_rtp_server_timeout(local_port: int, tuple: mk_loader.MediaTuple, tcp_mode: int, re_use_port: bool, ssrc: int) -> bool:
+#     mk_logger.log_info(f"on_rtp_server_timeout, local_port: {local_port}, tuple: {tuple.shortUrl()}, tcp_mode: {tcp_mode}, re_use_port: {re_use_port}, ssrc: {ssrc}")
+#     # 返回True代表此事件被python拦截
+#     return False
+
+# def on_reload_config():
+#     mk_logger.log_info(f"on_reload_config")
+
+# class PyMultiMediaSourceMuxer:
+#     def __init__(self, sender: mk_loader.MultiMediaSourceMuxer):
+#         mk_logger.log_info(f"PyMultiMediaSourceMuxer: {sender.getMediaTuple().shortUrl()}")
+#     def destroy(self):
+#         mk_logger.log_info(f"~PyMultiMediaSourceMuxer")
+
+#     def addTrack(self, track: mk_loader.Track):
+#         mk_logger.log_info(f"addTrack: {track.getCodecName()}")
+#         return True
+#     def addTrackCompleted(self):
+#         mk_logger.log_info(f"addTrackCompleted")
+#     def inputFrame(self, frame: mk_loader.Frame):
+#         # mk_logger.log_info(f"inputFrame: {frame.getCodecName()} {frame.dts()}")
+#         return True
+# def on_create_muxer(sender: mk_loader.MultiMediaSourceMuxer):
+#     return PyMultiMediaSourceMuxer(sender)
+
+
+# def on_get_rtsp_realm(args: dict, invoker, sender: dict) -> bool:
+#     mk_logger.log_info(f"on_get_rtsp_realm, args: {args}, sender: {sender}")
+#     mk_loader.rtsp_get_realm_invoker_do(invoker, "zlmediakit")
+#     # 返回True代表此事件被python拦截
+#     return True
+
+# def on_rtsp_auth(args: dict, realm: str, user_name: str, must_no_encrypt: bool, invoker, sender:dict) -> bool:
+#     mk_logger.log_info(f"on_rtsp_auth, args: {args}, realm: {realm}, user_name: {user_name}, must_no_encrypt: {must_no_encrypt}, sender: {sender}")
+#     mk_loader.rtsp_auth_invoker_do(invoker, False, "zlmediakit")
+#     # 返回True代表此事件被python拦截
+#     return True
