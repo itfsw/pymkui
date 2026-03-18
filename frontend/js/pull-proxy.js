@@ -1,5 +1,12 @@
 // ==================== 拉流代理页面 ====================
 
+// 分页状态
+const _pullProxyState = {
+    all: [],       // 全量数据
+    page: 1,       // 当前页（从 1 开始）
+    pageSize: 10,  // 每页行数
+};
+
 function initPullProxyEvents() {
     const addButton = document.getElementById('addPullProxy');
     if (addButton) {
@@ -36,52 +43,9 @@ async function loadPullProxyList() {
         const result = await Api.getStreamProxyList();
 
         if (result.code === 0) {
-            const data = result.data || [];
-
-            if (data.length === 0) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="8" class="p-10 text-center text-white/60 font-semibold">
-                            暂无拉流代理，点击「新增拉流代理」添加
-                        </td>
-                    </tr>
-                `;
-                return;
-            }
-
-            let html = '';
-            data.forEach(proxy => {
-                const onDemand = proxy.on_demand ? 1 : 0;
-                const onDemandClass = onDemand ? 'bg-yellow-500/20 text-yellow-400' : 'bg-white/10 text-white/40';
-                const onDemandText = onDemand ? '按需' : '立即';
-                const createdAt = proxy.created_at || '-';
-
-                html += `
-                    <tr class="border-b border-white/5 hover:bg-white/5 transition-colors">
-                        <td class="p-4 text-white/70 text-sm">${proxy.id}</td>
-                        <td class="p-4 text-white text-sm">${proxy.vhost || '__defaultVhost__'}</td>
-                        <td class="p-4 text-white font-semibold">${proxy.app || '-'}</td>
-                        <td class="p-4 text-white font-semibold">${proxy.stream || '-'}</td>
-                        <td class="p-4 text-white/80 text-sm max-w-xs truncate" title="${proxy.url || ''}">${proxy.url || '-'}</td>
-                        <td class="p-4">
-                            <span class="px-3 py-1 rounded-full text-sm font-semibold ${onDemandClass}">${onDemandText}</span>
-                        </td>
-                        <td class="p-4 text-white/60 text-sm">${createdAt}</td>
-                        <td class="p-4 space-x-2">
-                            <button class="bg-blue-500/80 text-white px-3 py-1 rounded-lg text-sm font-semibold hover:shadow-neon transition-colors"
-                                onclick="viewPullProxyDetail(${proxy.id})">
-                                详情
-                            </button>
-                            <button class="bg-red-500/80 text-white px-3 py-1 rounded-lg text-sm font-semibold hover:shadow-neon transition-colors"
-                                onclick="deletePullProxy('${proxy.vhost || '__defaultVhost__'}', '${proxy.app}', '${proxy.stream}', ${proxy.id})">
-                                删除
-                            </button>
-                        </td>
-                    </tr>
-                `;
-            });
-
-            tbody.innerHTML = html;
+            _pullProxyState.all = result.data || [];
+            _pullProxyState.page = 1;
+            _renderPullProxyPage();
         } else {
             tbody.innerHTML = `
                 <tr>
@@ -100,6 +64,121 @@ async function loadPullProxyList() {
             </tr>
         `;
     }
+}
+
+function _renderPullProxyPage() {
+    const tbody = document.getElementById('pullProxyTableBody');
+    const pagination = document.getElementById('pullProxyPagination');
+    const pageInfo = document.getElementById('pullProxyPageInfo');
+    const pageBtns = document.getElementById('pullProxyPageBtns');
+    const prevBtn = document.getElementById('pullProxyPrevBtn');
+    const nextBtn = document.getElementById('pullProxyNextBtn');
+    if (!tbody) return;
+
+    const { all, page, pageSize } = _pullProxyState;
+    const total = all.length;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const curPage = Math.min(page, totalPages);
+    _pullProxyState.page = curPage;
+
+    if (total === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="p-10 text-center text-white/60 font-semibold">
+                    暂无拉流代理，点击「新增拉流代理」添加
+                </td>
+            </tr>
+        `;
+        if (pagination) pagination.classList.add('hidden');
+        return;
+    }
+
+    const start = (curPage - 1) * pageSize;
+    const pageData = all.slice(start, start + pageSize);
+
+    let html = '';
+    pageData.forEach(proxy => {
+        const onDemand = proxy.on_demand ? 1 : 0;
+        const onDemandClass = onDemand ? 'bg-yellow-500/20 text-yellow-400' : 'bg-white/10 text-white/40';
+        const onDemandText = onDemand ? '按需' : '立即';
+        const createdAt = proxy.created_at || '-';
+
+        html += `
+            <tr class="border-b border-white/5 hover:bg-white/5 transition-colors">
+                <td class="p-4 text-white/70 text-sm">${proxy.id}</td>
+                <td class="p-4 text-white text-sm">${proxy.vhost || '__defaultVhost__'}</td>
+                <td class="p-4 text-white font-semibold">${proxy.app || '-'}</td>
+                <td class="p-4 text-white font-semibold">${proxy.stream || '-'}</td>
+                <td class="p-4 text-white/80 text-sm max-w-xs truncate" title="${proxy.url || ''}">${proxy.url || '-'}</td>
+                <td class="p-4">
+                    <span class="px-3 py-1 rounded-full text-sm font-semibold ${onDemandClass}">${onDemandText}</span>
+                </td>
+                <td class="p-4 text-white/60 text-sm">${createdAt}</td>
+                <td class="p-4 space-x-2">
+                    <button class="bg-blue-500/80 text-white px-3 py-1 rounded-lg text-sm font-semibold hover:shadow-neon transition-colors"
+                        onclick="viewPullProxyDetail(${proxy.id})">
+                        详情
+                    </button>
+                    <button class="bg-red-500/80 text-white px-3 py-1 rounded-lg text-sm font-semibold hover:shadow-neon transition-colors"
+                        onclick="deletePullProxy('${proxy.vhost || '__defaultVhost__'}', '${proxy.app}', '${proxy.stream}', ${proxy.id})">
+                        删除
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+    tbody.innerHTML = html;
+
+    // ---- 分页控件 ----
+    if (pagination) pagination.classList.remove('hidden');
+    if (pageInfo) pageInfo.textContent = `共 ${total} 条，第 ${curPage} / ${totalPages} 页`;
+
+    // 上/下页按钮
+    if (prevBtn) {
+        prevBtn.disabled = curPage <= 1;
+        prevBtn.onclick = () => { _pullProxyState.page = curPage - 1; _renderPullProxyPage(); };
+    }
+    if (nextBtn) {
+        nextBtn.disabled = curPage >= totalPages;
+        nextBtn.onclick = () => { _pullProxyState.page = curPage + 1; _renderPullProxyPage(); };
+    }
+
+    // 页码按钮（最多显示 7 个：首、尾、当前±2，省略号）
+    if (pageBtns) {
+        const btnCls = (active) => active
+            ? 'px-3 py-1 rounded-lg bg-primary text-white text-sm font-bold'
+            : 'px-3 py-1 rounded-lg bg-white/10 text-white text-sm font-semibold hover:bg-white/20 transition-colors';
+
+        const pages = _calcPageRange(curPage, totalPages);
+        pageBtns.innerHTML = '';
+        pages.forEach(p => {
+            if (p === '...') {
+                const span = document.createElement('span');
+                span.className = 'px-2 py-1 text-white/40 text-sm';
+                span.textContent = '…';
+                pageBtns.appendChild(span);
+            } else {
+                const btn = document.createElement('button');
+                btn.className = btnCls(p === curPage);
+                btn.textContent = p;
+                btn.onclick = () => { _pullProxyState.page = p; _renderPullProxyPage(); };
+                pageBtns.appendChild(btn);
+            }
+        });
+    }
+}
+
+// 计算要展示的页码序列，最多7个槽位
+function _calcPageRange(cur, total) {
+    if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+    const result = [];
+    const add = (p) => { if (!result.includes(p)) result.push(p); };
+    add(1);
+    if (cur - 2 > 2) result.push('...');
+    for (let p = Math.max(2, cur - 2); p <= Math.min(total - 1, cur + 2); p++) add(p);
+    if (cur + 2 < total - 1) result.push('...');
+    add(total);
+    return result;
 }
 
 // ==================== 新增弹窗 ====================
