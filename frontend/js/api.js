@@ -424,6 +424,10 @@ const Api = {
         return this.request(`/index/pyapi/getStreamProxy?id=${id}`, { method: 'GET' });
     },
 
+    async listStreamProxy(key) {
+        return this.request(`/index/api/listStreamProxy?key=${encodeURIComponent(key)}`, { method: 'GET' });
+    },
+
     clearAuth() {
         this.cookie = '';
         localStorage.removeItem('serverUrl');

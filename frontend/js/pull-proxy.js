@@ -7,10 +7,12 @@ const _pullProxyState = {
     pageSize: 10,  // 每页行数
 };
 
+// 状态缓存: key => ZLM listStreamProxy 返回的单条数据（或 null=离线）
+const _pullProxyStatusCache = {};
+
 function initPullProxyEvents() {
     const addButton = document.getElementById('addPullProxy');
     if (addButton) {
-        // 移除旧监听器，防止重复绑定
         const newBtn = addButton.cloneNode(true);
         addButton.parentNode.replaceChild(newBtn, addButton);
         newBtn.addEventListener('click', openAddPullProxyModal);
@@ -32,7 +34,7 @@ async function loadPullProxyList() {
 
     tbody.innerHTML = `
         <tr>
-            <td colspan="9" class="p-10 text-center">
+            <td colspan="10" class="p-10 text-center">
                 <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto mb-4"></div>
                 <span class="text-white/60 font-semibold">加载中...</span>
             </td>
@@ -45,11 +47,15 @@ async function loadPullProxyList() {
         if (result.code === 0) {
             _pullProxyState.all = result.data || [];
             _pullProxyState.page = 1;
+
+            // 批量查询 ZLM 状态（并发，忽略失败）
+            await _fetchAllProxyStatus(_pullProxyState.all);
+
             _renderPullProxyPage();
         } else {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="9" class="p-10 text-center text-white/60 font-semibold">
+                    <td colspan="10" class="p-10 text-center text-white/60 font-semibold">
                         加载失败: ${result.msg || '未知错误'}
                     </td>
                 </tr>
@@ -58,12 +64,34 @@ async function loadPullProxyList() {
     } catch (error) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="9" class="p-10 text-center text-white/60 font-semibold">
+                <td colspan="10" class="p-10 text-center text-white/60 font-semibold">
                     网络错误: ${error.message}
                 </td>
             </tr>
         `;
     }
+}
+
+/**
+ * 批量并发查询所有代理在 ZLM 中的状态，结果写入 _pullProxyStatusCache
+ */
+async function _fetchAllProxyStatus(proxies) {
+    await Promise.all(proxies.map(async proxy => {
+        const vhost  = proxy.vhost  || '__defaultVhost__';
+        const app    = proxy.app    || '';
+        const stream = proxy.stream || '';
+        const key    = `${vhost}/${app}/${stream}`;
+        try {
+            const res = await Api.listStreamProxy(key);
+            if (res && res.code === 0 && Array.isArray(res.data) && res.data.length > 0) {
+                _pullProxyStatusCache[key] = res.data[0];
+            } else {
+                _pullProxyStatusCache[key] = null;
+            }
+        } catch (e) {
+            _pullProxyStatusCache[key] = null;
+        }
+    }));
 }
 
 function _renderPullProxyPage() {
@@ -84,7 +112,7 @@ function _renderPullProxyPage() {
     if (total === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="9" class="p-10 text-center text-white/60 font-semibold">
+                <td colspan="10" class="p-10 text-center text-white/60 font-semibold">
                     暂无拉流代理，点击「新增拉流代理」添加
                 </td>
             </tr>
@@ -103,6 +131,35 @@ function _renderPullProxyPage() {
         const onDemandText = onDemand ? '按需' : '立即';
         const createdAt = proxy.created_at || '-';
 
+        // ---- 状态列 ----
+        const vhost  = proxy.vhost  || '__defaultVhost__';
+        const key    = `${vhost}/${proxy.app}/${proxy.stream}`;
+        const status = _pullProxyStatusCache[key]; // null=离线 / undefined=未查询 / object=ZLM数据
+        let statusHtml = '';
+        if (status === undefined) {
+            // 未查询
+            statusHtml = `<span class="px-3 py-1 rounded-full text-xs font-semibold bg-white/10 text-white/40">查询中</span>`;
+        } else if (status === null) {
+            // ZLM 无此记录 → 离线（不可点击）
+            statusHtml = `<span class="px-3 py-1 rounded-full text-xs font-semibold bg-white/10 text-white/40"><i class="fa fa-circle mr-1"></i>离线</span>`;
+        } else {
+            const ss = status.status_str || '';
+            // 把 status 对象存到全局 map，用 key 引用，避免 onclick 内联 JSON 转义问题
+            _pullProxyStatusCache['__detail__' + key] = status;
+            const escapedKey = key.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            if (ss === 'playing') {
+                statusHtml = `<button class="px-3 py-1 rounded-full text-xs font-semibold bg-green-500/20 text-green-400 hover:bg-green-500/30 transition-colors"
+                    onclick="showProxyStatusDetail('${escapedKey}')">
+                    <i class="fa fa-circle mr-1"></i>在线
+                </button>`;
+            } else {
+                statusHtml = `<button class="px-3 py-1 rounded-full text-xs font-semibold bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"
+                    onclick="showProxyStatusDetail('${escapedKey}')">
+                    <i class="fa fa-exclamation-circle mr-1"></i>失败
+                </button>`;
+            }
+        }
+
         html += `
             <tr class="border-b border-white/5 hover:bg-white/5 transition-colors">
                 <td class="p-4 text-white/70 text-sm">${proxy.id}</td>
@@ -114,6 +171,7 @@ function _renderPullProxyPage() {
                 <td class="p-4">
                     <span class="px-3 py-1 rounded-full text-sm font-semibold ${onDemandClass}">${onDemandText}</span>
                 </td>
+                <td class="p-4">${statusHtml}</td>
                 <td class="p-4 text-white/60 text-sm">${createdAt}</td>
                 <td class="p-4 space-x-2">
                     <button class="bg-blue-500/80 text-white px-3 py-1 rounded-lg text-sm font-semibold hover:shadow-neon transition-colors"
@@ -944,3 +1002,194 @@ function cleanupPullProxyPage() {
         container.style.pointerEvents = 'none';
     }
 }
+
+// ==================== ZLM 状态详情弹窗 ====================
+
+function showProxyStatusDetail(cacheKey) {
+    const data = _pullProxyStatusCache['__detail__' + cacheKey];
+    if (!data) { showToast('状态数据不存在', 'warning'); return; }
+
+    const statusMap = {
+        'playing':    { label: '拉流中', cls: 'bg-green-500/20 text-green-400'  },
+        'idle':       { label: '空闲',   cls: 'bg-white/10 text-white/50'       },
+        'connecting': { label: '连接中', cls: 'bg-yellow-500/20 text-yellow-400'},
+        'error':      { label: '错误',   cls: 'bg-red-500/20 text-red-400'      },
+    };
+    const ss    = data.status_str || '';
+    const sInfo = statusMap[ss] || { label: ss || '未知', cls: 'bg-red-500/20 text-red-400' };
+
+    // tracks 渲染
+    const codecTypeMap = { 0: '视频', 1: '音频' };
+    let tracksHtml = '';
+    if (Array.isArray(data.tracks) && data.tracks.length > 0) {
+        data.tracks.forEach((t, i) => {
+            const type = codecTypeMap[t.codec_type] ?? t.codec_type;
+            const ready = t.ready
+                ? '<span class="text-green-400">✓ 就绪</span>'
+                : '<span class="text-red-400">✗ 未就绪</span>';
+            let extraRows = '';
+            if (t.codec_type === 0) {
+                // 视频
+                extraRows = `
+                    <tr><td class="text-white/50 pr-4 py-0.5">分辨率</td><td class="text-white">${t.width ?? '-'} × ${t.height ?? '-'}</td></tr>
+                    <tr><td class="text-white/50 pr-4 py-0.5">帧率</td><td class="text-white">${t.fps ?? '-'} fps</td></tr>
+                    <tr><td class="text-white/50 pr-4 py-0.5">GOP大小</td><td class="text-white">${t.gop_size ?? '-'} 帧 / ${t.gop_interval_ms ?? '-'} ms</td></tr>
+                    <tr><td class="text-white/50 pr-4 py-0.5">关键帧数</td><td class="text-white">${t.key_frames ?? '-'}</td></tr>`;
+            } else {
+                // 音频
+                extraRows = `
+                    <tr><td class="text-white/50 pr-4 py-0.5">声道数</td><td class="text-white">${t.channels ?? '-'}</td></tr>
+                    <tr><td class="text-white/50 pr-4 py-0.5">采样率</td><td class="text-white">${t.sample_rate ?? '-'} Hz</td></tr>
+                    <tr><td class="text-white/50 pr-4 py-0.5">位深</td><td class="text-white">${t.sample_bit ?? '-'} bit</td></tr>`;
+            }
+            tracksHtml += `
+                <div class="bg-white/5 rounded-lg px-4 py-3">
+                    <div class="text-white/50 text-xs font-bold uppercase tracking-widest mb-2">
+                        Track ${i + 1} — ${type} / ${t.codec_id_name ?? '-'}
+                    </div>
+                    <table class="text-sm w-full">
+                        <tr><td class="text-white/50 pr-4 py-0.5">就绪</td><td>${ready}</td></tr>
+                        <tr><td class="text-white/50 pr-4 py-0.5">总帧数</td><td class="text-white">${t.frames ?? '-'}</td></tr>
+                        <tr><td class="text-white/50 pr-4 py-0.5">时长</td><td class="text-white">${t.duration != null ? (t.duration / 1000).toFixed(1) + ' 秒' : '-'}</td></tr>
+                        ${extraRows}
+                    </table>
+                </div>`;
+        });
+    } else {
+        tracksHtml = `<div class="text-white/30 text-sm col-span-2">暂无 Track 信息</div>`;
+    }
+
+    const modal = document.createElement('div');
+    modal.id = 'proxyStatusDetailModal';
+    modal.className = 'fixed inset-0 bg-black/80 backdrop-blur-sm flex items-start justify-center z-50 overflow-y-auto py-8';
+    modal.innerHTML = `
+        <div class="bg-gray-900 rounded-xl p-6 max-w-2xl w-full mx-4 border border-white/20 shadow-2xl" onclick="event.stopPropagation()">
+
+            <!-- 标题 -->
+            <div class="flex justify-between items-center mb-5">
+                <div class="flex items-center gap-3">
+                    <h3 class="text-xl font-bold text-white">拉流状态详情</h3>
+                    <span class="px-3 py-1 rounded-full text-xs font-semibold ${sInfo.cls}">${sInfo.label}</span>
+                </div>
+                <button onclick="document.getElementById('proxyStatusDetailModal').remove()" class="text-white/60 hover:text-white">
+                    <i class="fa fa-times text-2xl"></i>
+                </button>
+            </div>
+
+            <!-- 基础信息 -->
+            <div class="mb-4">
+                <h4 class="text-white/50 text-xs font-bold uppercase tracking-widest mb-2">基础信息</h4>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-white/5 rounded-lg px-4 py-3 col-span-2">
+                        <div class="text-white/50 text-xs mb-1">Key</div>
+                        <div class="text-white text-sm font-mono break-all">${data.key ?? '-'}</div>
+                    </div>
+                    <div class="bg-white/5 rounded-lg px-4 py-3 col-span-2">
+                        <div class="text-white/50 text-xs mb-1">拉流地址 (url)</div>
+                        <div class="text-white/80 text-sm font-mono break-all">${data.url ?? '-'}</div>
+                    </div>
+                    <div class="bg-white/5 rounded-lg px-4 py-3">
+                        <div class="text-white/50 text-xs mb-1">状态码 (status)</div>
+                        <div class="text-white text-sm">${data.status ?? '-'}</div>
+                    </div>
+                    <div class="bg-white/5 rounded-lg px-4 py-3">
+                        <div class="text-white/50 text-xs mb-1">状态 (status_str)</div>
+                        <div class="text-sm font-semibold ${sInfo.cls.replace(/bg-\S+/,'').trim()}">${ss || '-'}</div>
+                    </div>
+                    <div class="bg-white/5 rounded-lg px-4 py-3">
+                        <div class="text-white/50 text-xs mb-1">在线时长 (liveSecs)</div>
+                        <div class="text-white text-sm">${data.liveSecs != null ? data.liveSecs + ' 秒' : '-'}</div>
+                    </div>
+                    <div class="bg-white/5 rounded-lg px-4 py-3">
+                        <div class="text-white/50 text-xs mb-1">重拉次数 (rePullCount)</div>
+                        <div class="text-white text-sm">${data.rePullCount ?? '-'}</div>
+                    </div>
+                    <div class="bg-white/5 rounded-lg px-4 py-3">
+                        <div class="text-white/50 text-xs mb-1">实时速率 (bytesSpeed)</div>
+                        <div class="text-white text-sm">${data.bytesSpeed != null ? (data.bytesSpeed / 1024).toFixed(1) + ' KB/s' : '-'}</div>
+                    </div>
+                    <div class="bg-white/5 rounded-lg px-4 py-3">
+                        <div class="text-white/50 text-xs mb-1">累计流量 (totalBytes)</div>
+                        <div class="text-white text-sm">${data.totalBytes != null ? (data.totalBytes / 1024 / 1024).toFixed(2) + ' MB' : '-'}</div>
+                    </div>
+                    <div class="bg-white/5 rounded-lg px-4 py-3">
+                        <div class="text-white/50 text-xs mb-1">观看人数 (totalReaderCount)</div>
+                        <div class="text-white text-sm">${data.totalReaderCount ?? '-'}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- src 信息 -->
+            <div class="mb-4">
+                <h4 class="text-white/50 text-xs font-bold uppercase tracking-widest mb-2">来源信息 (src)</h4>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-white/5 rounded-lg px-4 py-3">
+                        <div class="text-white/50 text-xs mb-1">vhost</div>
+                        <div class="text-white text-sm font-mono">${data.src?.vhost ?? '-'}</div>
+                    </div>
+                    <div class="bg-white/5 rounded-lg px-4 py-3">
+                        <div class="text-white/50 text-xs mb-1">app</div>
+                        <div class="text-white text-sm font-mono">${data.src?.app ?? '-'}</div>
+                    </div>
+                    <div class="bg-white/5 rounded-lg px-4 py-3">
+                        <div class="text-white/50 text-xs mb-1">stream</div>
+                        <div class="text-white text-sm font-mono">${data.src?.stream ?? '-'}</div>
+                    </div>
+                    <div class="bg-white/5 rounded-lg px-4 py-3">
+                        <div class="text-white/50 text-xs mb-1">params</div>
+                        <div class="text-white text-sm font-mono break-all">${data.src?.params || '(空)'}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tracks -->
+            <div class="mb-5">
+                <h4 class="text-white/50 text-xs font-bold uppercase tracking-widest mb-2">媒体轨道 (tracks)</h4>
+                <div class="grid grid-cols-2 gap-3">
+                    ${tracksHtml}
+                </div>
+            </div>
+
+            <div class="flex justify-between items-center">
+                <button id="proxyStatusRefreshBtn"
+                    class="flex items-center gap-2 bg-primary/30 text-white px-5 py-2 rounded-lg font-semibold hover:bg-primary/50 transition-colors">
+                    <i class="fa fa-refresh"></i>刷新
+                </button>
+                <button onclick="document.getElementById('proxyStatusDetailModal').remove()"
+                    class="bg-white/10 text-white px-5 py-2 rounded-lg font-semibold hover:bg-white/20 transition-colors">
+                    关闭
+                </button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+
+    // 刷新按钮：重新查询 ZLM 状态后重建弹窗
+    document.getElementById('proxyStatusRefreshBtn').addEventListener('click', async function () {
+        const btn = this;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> 刷新中...';
+        try {
+            const res = await Api.listStreamProxy(cacheKey);
+            if (res && res.code === 0 && Array.isArray(res.data) && res.data.length > 0) {
+                _pullProxyStatusCache[cacheKey] = res.data[0];
+                _pullProxyStatusCache['__detail__' + cacheKey] = res.data[0];
+            } else {
+                _pullProxyStatusCache[cacheKey] = null;
+                delete _pullProxyStatusCache['__detail__' + cacheKey];
+            }
+        } catch (e) {
+            showToast('刷新失败: ' + e.message, 'error');
+        }
+        modal.remove();
+        // 重新打开弹窗（若仍有数据）
+        if (_pullProxyStatusCache['__detail__' + cacheKey]) {
+            showProxyStatusDetail(cacheKey);
+        } else {
+            showToast('代理已离线', 'warning');
+            _renderPullProxyPage(); // 同步更新列表状态列
+        }
+    });
+}
+
