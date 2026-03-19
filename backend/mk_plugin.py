@@ -98,10 +98,6 @@ def _resolve_ffmpeg_bin(configured: str) -> str:
 
 def on_start():
     mk_logger.log_info(f"on_start, secret: {mk_loader.get_config('api.secret')}")
-    # 强制cookie登录
-    mk_loader.set_config('api.legacyAuth', "0")
-    mk_logger.log_info(f"set api.legacyAuth to 0")
-    
     # 设置http.rootPath为当前py文件的../frontend目录
     current_dir = os.path.dirname(os.path.abspath(__file__))
     frontend_path = os.path.abspath(os.path.join(current_dir, '..', 'frontend'))
