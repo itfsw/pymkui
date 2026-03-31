@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>登录 - ZLMediaKit 管理系统</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <link href="libs/font-awesome/css/font-awesome.min.css" rel="stylesheet">
     <script>
         tailwind.config = {
             theme: {
@@ -94,7 +94,7 @@
                     </h1>
                     <p class="text-white/80 text-lg">媒体服务器管理系统</p>
                 </div>
-                
+
                 <!-- 登录表单 -->
                 <form id="loginForm" class="space-y-6">
                     <div>
@@ -105,17 +105,17 @@
                             <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                 <i class="fa fa-key text-white/60"></i>
                             </div>
-                            <input 
-                                type="password" 
-                                id="secret" 
-                                name="secret" 
+                            <input
+                                type="password"
+                                id="secret"
+                                name="secret"
                                 placeholder="请输入API密钥"
                                 required
                                 autocomplete="current-password"
                                 class="w-full h-12 pl-12 pr-12 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/60 focus:border-primary focus:ring-2 focus:ring-primary/50 focus:outline-none transition-all duration-300"
                             >
-                            <button 
-                                type="button" 
+                            <button
+                                type="button"
                                 id="togglePassword"
                                 class="absolute right-4 top-1/2 -translate-y-1/2 text-white/80 hover:text-white transition-colors duration-300"
                             >
@@ -123,9 +123,9 @@
                             </button>
                         </div>
                     </div>
-                    
-                    <button 
-                        type="submit" 
+
+                    <button
+                        type="submit"
                         id="loginBtn"
                         class="w-full h-14 bg-gradient-primary text-white font-semibold rounded-xl transition-all duration-300 hover:shadow-neon hover:-translate-y-1 active:translate-y-0 relative overflow-hidden group"
                     >
@@ -141,7 +141,7 @@
                         <div class="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                     </button>
                 </form>
-                
+
                 <!-- 页脚 -->
                 <div class="mt-8 text-center text-white/60 text-sm">
                     <p>© 2026 ZLMediaKit. 保留所有权利</p>
